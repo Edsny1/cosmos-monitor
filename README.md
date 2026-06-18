@@ -1,13 +1,9 @@
-# cosmos-monitor
+# Cosmos-Monitor
 
 **Multi-chain Cosmos validator TUI dashboard** — by [Edsny1](https://github.com/Edsny1)
 
-```
-╔══════════════════════════════════════════════════════════════════╗
-║                   OSHVANK  Validator Dashboard                   ║
-║         [Push Chain]  [Celestia]  [Lumera]  [Osmosis]  ...      ║
-╚══════════════════════════════════════════════════════════════════╝
-```
+<img width="1513" height="894" alt="Ekran görüntüsü 2026-06-18 164428" src="https://github.com/user-attachments/assets/6ed882d4-a460-4af8-8a17-f434b79f03a4" />
+
 
 A single terminal dashboard that monitors **all your Cosmos validator nodes simultaneously** — no more staring at raw log streams. Switch between chains with a single key press. Ports are read automatically from each chain's `config.toml` so no manual configuration is needed even when you use custom ports to avoid conflicts.
 
@@ -199,42 +195,8 @@ KNOWN_CHAINS[".mychain"] = {
 }
 ```
 
----
 
-## Dashboard Layout
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  HEADER         [Push Chain] [Celestia] [Lumera]  clock        │
-├────────────────────┬────────────────────────────────────────────┤
-│                    │  ◈ NODE STATUS                             │
-│   OSHVANK          │  Process ✓ Running (pid 1234)              │
-│   (ANSI logo)      │  RPC     ✓ :54657 listening                │
-│                    │  Uptime  4d 12h                            │
-│   Validator        │  Memory  22.1%                             │
-│   Dashboard        │  ⛓ CHAIN STATUS                            │
-│                    │  ████████████████░░░░  100%                │
-│                    │  Blocks  17,592,655                        │
-├────────────────────┴────────────────────────────────────────────┤
-│  🌐 NETWORK STATUS          │  🏛 MY VALIDATOR                  │
-│  Node ID  919771f0...       │  OshVanK  [BONDED]                │
-│  Moniker  OshVanK           │  Power    106                     │
-│  Peers    4 connected       │  Comm.    10%                     │
-│  Latency  146ms             │  Rewards  0.44 PC ⚡              │
-├─────────────────────────────────────────────────────────────────┤
-│  📋 VALIDATORS (page 1/32, total 160)   ← → to page            │
-│  NAME              STATUS   STAKE    COMM%  REWARDS  OUTSTANDING│
-│  ⊞ OshVanK [Me]   BONDED   106      10%    0.04     0.44       │
-│  Validator Valhalla BONDED  1.50B   10%    1.18M    11.88M     │
-│  …                                                              │
-├─────────────────────────────────────────────────────────────────┤
-│  📜 LOGS                                                        │
-│  7:48AM INF finalized block hash=921A57... height=17592657      │
-│  7:48AM INF executed block  app_hash=5E26DC... height=17592657  │
-├─────────────────────────────────────────────────────────────────┤
-│  q quit  ←/→ page  r refresh  h help                           │
-└─────────────────────────────────────────────────────────────────┘
-```
 
 ---
 
