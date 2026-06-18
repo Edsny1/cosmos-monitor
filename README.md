@@ -1,6 +1,6 @@
 # cosmos-monitor
 
-**Multi-chain Cosmos validator TUI dashboard** — by [Oshvank](https://github.com/oshvank)
+**Multi-chain Cosmos validator TUI dashboard** — by [Edsny1](https://github.com/Edsny1)
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
@@ -22,7 +22,7 @@ A single terminal dashboard that monitors **all your Cosmos validator nodes simu
 - **Validator table** with paginated list of all network validators
 - **Tail logs** directly in the dashboard
 - **Process monitoring** — PID, uptime, memory, disk
-- **Branded with your ANSI logo** — Oshvank branding built in
+- **Branded with your ANSI logo** — Edsny1 branding built in
 
 ---
 
@@ -55,19 +55,19 @@ A single terminal dashboard that monitors **all your Cosmos validator nodes simu
 ### One-line install (recommended)
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/oshvank/cosmos-monitor/main/install.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/Edsny1/cosmos-monitor/main/install.sh)
 ```
 
 ### Manual install via pip
 
 ```bash
-pip install git+https://github.com/oshvank/cosmos-monitor.git
+pip install git+https://github.com/Edsny1/cosmos-monitor.git
 ```
 
 ### Install from source (development)
 
 ```bash
-git clone https://github.com/oshvank/cosmos-monitor.git
+git clone https://github.com/Edsny1/cosmos-monitor.git
 cd cosmos-monitor
 bash install.sh --dev
 ```
@@ -260,4 +260,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*Built by [Oshvank](https://github.com/oshvank) — validator on Push Chain, Celestia, Lumera and more.*
+*Built by [Edsny1](https://github.com/Edsny1) — validator on Push Chain, Celestia, Lumera and more.*

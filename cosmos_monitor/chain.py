@@ -179,14 +179,8 @@ def _guess_binary(folder_name: str, chain_id: str) -> str:
 
 def _binary_exists(name: str) -> bool:
     """Check whether a binary is in PATH."""
-    try:
-        result = subprocess.run(
-            ["which", name],
-            capture_output=True, text=True
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
+    import shutil
+    return shutil.which(name) is not None
 
 
 def _find_process_binary(chain_id: str, folder_base: str) -> str:

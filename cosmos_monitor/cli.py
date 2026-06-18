@@ -75,6 +75,9 @@ def main():
 
 def _is_running(binary: str) -> bool:
     """Quick check if binary process is running."""
+    import shutil
+    if not shutil.which("pgrep"):
+        return False
     try:
         import subprocess
         r = subprocess.run(["pgrep", "-f", binary], capture_output=True)

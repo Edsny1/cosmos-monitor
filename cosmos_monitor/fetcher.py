@@ -58,7 +58,8 @@ def _get(url: str, timeout: int = 4) -> Optional[dict]:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             lat  = int((time.monotonic() - t0) * 1000)
             data = json.loads(resp.read().decode())
-            data["_lat"] = lat
+            if isinstance(data, dict):
+                data["_lat"] = lat
             return data
     except Exception:
         return None
@@ -82,7 +83,13 @@ def _proc(binary: str):
             starttime = int(fields[21])
             with open("/proc/uptime") as f:
                 sys_up = float(f.read().split()[0])
-            hz = os.sysconf(os.sysconf_names["SC_CLK_TCK"])
+            
+            hz = 100
+            try:
+                if hasattr(os, 'sysconf'):
+                    hz = os.sysconf(os.sysconf_names.get("SC_CLK_TCK", 100))
+            except Exception:
+                pass
             uptime = max(0, int(sys_up - starttime / hz))
         except Exception:
             pass
@@ -182,10 +189,10 @@ def _get_validators(rest: str, denom: str, moniker: str) -> tuple[list, Validato
     my_val = ValidatorInfo()
     vals   = []
 
-    # Fetch bonded validators
+    # Fetch all validators (no bond status filter, max 3000 limit)
     data = _get(
         f"{rest}/cosmos/staking/v1beta1/validators"
-        f"?status=BOND_STATUS_BONDED&pagination.limit=200",
+        f"?pagination.limit=3000",
         timeout=5
     )
     if not data:
