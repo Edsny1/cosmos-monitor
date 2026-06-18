@@ -67,15 +67,44 @@ def _get(url: str, timeout: int = 4) -> Optional[dict]:
 
 # ── Process info ──────────────────────────────────────────────────────────────
 
-def _proc(binary: str):
-    """Returns (running, pid, uptime_sec, mem_pct)."""
+def _find_pid_by_port(port: int) -> int:
     try:
-        r = subprocess.run(["pgrep", "-f", binary], capture_output=True, text=True)
-        pids = [p for p in r.stdout.strip().split() if p.isdigit()]
-        if not pids:
-            return False, 0, 0, 0.0
-        pid = int(pids[0])
+        r = subprocess.run(["ss", "-lptn", f"sport = :{port}"], capture_output=True, text=True, timeout=2)
+        for line in r.stdout.splitlines():
+            if f":{port}" in line and "pid=" in line:
+                m = re.search(r'pid=(\d+)', line)
+                if m:
+                    return int(m.group(1))
+    except Exception:
+        pass
+    
+    try:
+        r = subprocess.run(["lsof", "-t", f"-i:{port}", "-sTCP:LISTEN"], capture_output=True, text=True, timeout=2)
+        lines = r.stdout.strip().split()
+        if lines:
+            return int(lines[0])
+    except Exception:
+        pass
+        
+    return 0
 
+def _proc(binary: str, rpc_port: int = 0):
+    """Returns (running, pid, uptime_sec, mem_pct)."""
+    pid = 0
+    if rpc_port > 0:
+        pid = _find_pid_by_port(rpc_port)
+        
+    if not pid:
+        try:
+            r = subprocess.run(["pgrep", "-f", binary], capture_output=True, text=True)
+            pids = sorted([int(p) for p in r.stdout.strip().split() if p.isdigit()], reverse=True)
+            if not pids:
+                return False, 0, 0, 0.0
+            pid = pids[0] # Pick the highest PID (most likely the child daemon, not the bash script)
+        except Exception:
+            return False, 0, 0, 0.0
+
+    try:
         uptime = 0
         try:
             with open(f"/proc/{pid}/stat") as f:
@@ -124,12 +153,19 @@ def _disk(path: str) -> float:
 
 # ── Log reading ───────────────────────────────────────────────────────────────
 
-def _get_ppid(pid: int) -> int:
-    try:
-        with open(f"/proc/{pid}/stat") as f:
-            return int(f.read().split()[3])
-    except Exception:
-        return 0
+def _get_process_tree(pid: int) -> list[int]:
+    tree = []
+    curr = pid
+    for _ in range(10): # max depth to prevent infinite loops
+        if curr <= 1:
+            break
+        tree.append(curr)
+        try:
+            with open(f"/proc/{curr}/stat") as f:
+                curr = int(f.read().split()[3])
+        except Exception:
+            break
+    return tree
 
 def _read_logs(home_dir: str, pid: int = 0, binary: str = "", n: int = 30) -> list[str]:
     candidates = [
@@ -152,7 +188,23 @@ def _read_logs(home_dir: str, pid: int = 0, binary: str = "", n: int = 30) -> li
             except Exception:
                 pass
 
-    # 1. Try to find exactly which systemd service is running this PID
+    ptree = _get_process_tree(pid)
+
+    # 1. Try fetching directly by Process Tree PIDs (extremely robust for tmux/screen/cosmovisor)
+    if ptree:
+        cmd = ["journalctl"]
+        for p in ptree:
+            cmd.append(f"_PID={p}")
+        cmd.extend(["-n", str(n), "--no-pager", "-q"])
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
+            lines = [l for l in r.stdout.splitlines() if l.strip()]
+            if lines:
+                return lines
+        except Exception:
+            pass
+
+    # 2. Try Exact systemd unit from cgroup
     unit = ""
     if pid > 0:
         try:
@@ -164,7 +216,7 @@ def _read_logs(home_dir: str, pid: int = 0, binary: str = "", n: int = 30) -> li
         except Exception:
             pass
 
-    if unit:
+    if unit and "user@" not in unit:
         try:
             r = subprocess.run(
                 ["journalctl", "-u", unit, "-n", str(n), "--no-pager", "-q"],
@@ -176,22 +228,25 @@ def _read_logs(home_dir: str, pid: int = 0, binary: str = "", n: int = 30) -> li
         except Exception:
             pass
 
-    # 2. Try fetching directly by PID and Parent PID (extremely robust for tmux/screen/cosmovisor)
-    if pid > 0:
-        ppid = _get_ppid(pid)
-        cmd = ["journalctl", f"_PID={pid}"]
-        if ppid > 0:
-            cmd.append(f"_PID={ppid}")
-        cmd.extend(["-n", str(n), "--no-pager", "-q"])
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
-            lines = [l for l in r.stdout.splitlines() if l.strip()]
-            if lines:
-                return lines
-        except Exception:
-            pass
+    # 3. Guess common systemd unit names
+    units = []
+    folder = os.path.basename(home_dir).lstrip(".")
+    if folder:
+        units.extend([f"{folder}.service", f"{folder}d.service"])
+    if binary:
+        units.extend([f"{binary}.service", f"{binary}d.service"])
+        
+    for u in dict.fromkeys(units):
+        if u:
+            try:
+                r = subprocess.run(["journalctl", "-u", u, "-n", str(n), "--no-pager", "-q"], capture_output=True, text=True, timeout=3)
+                lines = [l for l in r.stdout.splitlines() if l.strip()]
+                if lines:
+                    return lines
+            except Exception:
+                pass
 
-    # 3. Fallback to syslog identifier (binary name)
+    # 4. Fallback to syslog identifier (binary name)
     if binary:
         try:
             r = subprocess.run(
@@ -204,21 +259,25 @@ def _read_logs(home_dir: str, pid: int = 0, binary: str = "", n: int = 30) -> li
         except Exception:
             pass
 
-    # 4. Global grep fallback (last resort)
+    # 5. Global grep fallback (last resort)
     try:
         r = subprocess.run(
-            ["journalctl", "-n", "300", "--no-pager", "-q"],
-            capture_output=True, text=True, timeout=3
+            ["journalctl", "-n", "5000", "--no-pager", "-q"],
+            capture_output=True, text=True, timeout=4
         )
         lines = []
-        folder = os.path.basename(home_dir).lstrip(".")
         for l in r.stdout.splitlines():
             l_str = l.strip()
-            # Try to match the binary or the chain's folder name in the log line
+            # Match binary, folder, or PID
             if binary and binary in l_str:
                 lines.append(l_str)
             elif folder and folder in l_str:
                 lines.append(l_str)
+            else:
+                for p in ptree:
+                    if f"[{p}]" in l_str:
+                        lines.append(l_str)
+                        break
         if lines:
             return lines[-n:]
     except Exception:
@@ -367,7 +426,7 @@ def fetch_node_status(cfg: ChainConfig) -> NodeStatus:
     rest = f"http://127.0.0.1:{cfg.ports.rest}"
 
     # Process
-    running, pid, uptime, mem = _proc(cfg.binary)
+    running, pid, uptime, mem = _proc(cfg.binary, cfg.ports.rpc)
     s.running    = running
     s.pid        = pid
     s.uptime_sec = uptime
